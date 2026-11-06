@@ -141,6 +141,19 @@ describe("isPoisonedTranscriptError", () => {
   const REAL_ERROR =
     "API Error: 400 messages.1.content.13: thinking or redacted_thinking blocks in the latest assistant message cannot be modified. These blocks must remain as they were in the original response.";
 
+  it("recognizes the compaction 422 without requiring zero work", () => {
+    const error = "Prompt is too long · automatic compaction failed: API Error: 422 Failed to deserialize the JSON body into the target type: messages[1].content: unknown variant `tool_definition`, expected `tool_reference` at line 1 column 225712";
+    expect(isPoisonedTranscriptError(makeResult({ error, cost: 0.42, numTurns: 40 }))).toBe(true);
+    expect(isPoisonedTranscriptError(makeResult({ error, retryable: false }))).toBe(false);
+    expect(isPoisonedTranscriptError(makeResult({ error, rateLimit: { status: "rejected", resetsAt: 9999999999 } }))).toBe(false);
+  });
+
+  it("does not clear history for unrelated schema or length failures", () => {
+    for (const error of ["Prompt is too long", "API Error: 422 invalid input", "tool failed: unknown variant `tool_definition`, expected `tool_reference`", "messages[1].content: unknown variant `text`, expected `tool_reference`"]) {
+      expect(isPoisonedTranscriptError(makeResult({ error }))).toBe(false);
+    }
+  });
+
   it("returns true for the real corrupted-thinking 400", () => {
     expect(isPoisonedTranscriptError(makeResult({ error: REAL_ERROR }))).toBe(true);
   });

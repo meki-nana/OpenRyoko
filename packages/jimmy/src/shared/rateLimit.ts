@@ -46,6 +46,10 @@ const DEAD_SESSION_PATTERNS = [
 const POISONED_TRANSCRIPT_RE =
   /(thinking|redacted_thinking)\b[\s\S]*?blocks[\s\S]*?(cannot be modified|must remain as they were)/i;
 
+// Match the rejected message schema, not arbitrary tool errors or quota failures.
+const INCOMPATIBLE_TRANSCRIPT_RE =
+  /messages(?:\[\d+\]|\.\d+)\.content[^\n]*unknown variant [`"']?tool_definition[`"']?[^\n]*expected [`"']?tool_reference/i;
+
 /**
  * Detect whether an engine result indicates the persisted transcript can no
  * longer be resumed (see POISONED_TRANSCRIPT_RE). Caller should clear the engine
@@ -55,7 +59,7 @@ export function isPoisonedTranscriptError(result: EngineResult): boolean {
   if (result.retryable === false) return false;
   if (!result.error) return false;
   if (result.rateLimit?.status) return false;
-  return POISONED_TRANSCRIPT_RE.test(result.error);
+  return POISONED_TRANSCRIPT_RE.test(result.error) || INCOMPATIBLE_TRANSCRIPT_RE.test(result.error);
 }
 
 /**

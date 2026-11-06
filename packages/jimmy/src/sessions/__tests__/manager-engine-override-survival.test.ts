@@ -75,6 +75,8 @@ describe("a session held on its fallback engine keeps its way back", () => {
 
   it.each<[string, EngineResult]>([
     ["a stale engine session is cleared", { sessionId: "", result: "", error: "codex exited with code 1" }],
+    ["a compaction schema failure is cleared", { sessionId: "codex-thread", result: "", cost: 0.4, numTurns: 3,
+      error: "Prompt is too long · automatic compaction failed: API Error: 422 messages[1].content: unknown variant `tool_definition`, expected `tool_reference`" }],
     ["an unresumable transcript is cleared", { sessionId: "codex-thread", result: "", cost: 0.4, numTurns: 3,
       error: "messages.1.content.13: thinking or redacted_thinking blocks in the latest assistant message cannot be modified." }],
   ])("when %s", async (_label, failure) => {
@@ -85,6 +87,11 @@ describe("a session held on its fallback engine keeps its way back", () => {
 
     await f.manager.route(f.message("進捗を教えてください"), f.connector);
 
+    if (_label === "a compaction schema failure is cleared") {
+      expect(f.codexRun).toHaveBeenCalledTimes(1); // no replay of possible side effects
+      expect(getSession(f.sessionId)!.engineSessionId).toBeNull();
+      expect(getSession(f.sessionId)!.status).toBe("error");
+    }
     expect(getSession(f.sessionId)!.engine).toBe("codex");
     expect(override(f.sessionId)).toMatchObject({ originalEngine: "claude", originalEngineSessionId: "claude-original", until });
 
